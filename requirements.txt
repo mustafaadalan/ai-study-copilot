@@ -1,0 +1,7 @@
+streamlit
+sentence-transformers
+pypdf
+faiss-cpu
+requests
+mysql-connector-python
+python-dotenv
