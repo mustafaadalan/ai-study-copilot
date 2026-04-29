@@ -1,26 +1,26 @@
-# AI Study Copilot
+# 🚀 AI Study Copilot
 
-AI Study Copilot, PDF ders notlarini analiz ederek ogrenmeyi hizlandirmak icin gelistirilmis mini bir yapay zeka asistanidir.
-Proje, dokumani sayfa bazinda okur, metni anlamli parcalara boler, semantik arama ile en ilgili icerikleri bulur ve bu iceriklerden bosluk doldurma (cloze) tipi quiz sorulari uretir.
+AI Study Copilot is an AI-powered study assistant designed to accelerate the learning process by analyzing PDF lecture notes. The project parses documents, divides the text into meaningful semantic chunks, retrieves the most relevant information using vector search, and automatically generates cloze-type (fill-in-the-blank) quiz questions.
 
-Bu sayede kullanici sadece metni okumakla kalmaz; ayni zamanda aktif tekrar yaparak konuyu daha kalici sekilde ogrenir.
-Kisacasi bu proje, "dokuman okuma" surecini "etkilesimli ogrenme" deneyimine donusturmeyi hedefler.
+This approach transforms the passive "document reading" experience into an active, interactive learning session, ensuring better retention of complex subjects.
 
-## Neden Bu Proje?
+## 🎯 Why This Project?
+* Extracting specific, accurate information from lengthy PDF notes is often time-consuming.
+* Passive reading methods generally lead to low knowledge retention.
+* The learning process needs to be more efficient, measurable, and intelligent through modern AI capabilities.
 
-- Uzun PDF notlarinda dogru bilgiye hizli ulasmak zor.
-- Klasik calisma yontemlerinde aktif tekrar eksik kaliyor.
-- Ogrenme surecini daha verimli, daha olculebilir ve daha akilli hale getirmek gerekiyor.
+## ⚙️ How It Works (Architecture)
+1. **Document Ingestion:** Reads and parses PDF files (`pdf_reader`).
+2. **Text Processing:** Cleans the extracted text and splits it into manageable pieces (`chunker`).
+3. **Vectorization & Indexing:** Converts text chunks into embeddings and indexes them using FAISS for rapid retrieval (`retriever`).
+4. **Contextual Retrieval:** Finds the most relevant document sections based on the user's query using Retrieval-Augmented Generation (RAG).
+5. **Quiz Generation:** Automatically generates interactive quiz questions from the retrieved context (`quiz_generator`).
 
-## Nasil Calisir?
+## 🛠️ Tech Stack
+* **Language:** Python
+* **AI & NLP:** RAG Architecture, Local LLMs (Ollama), Text Embeddings
+* **Vector Database:** FAISS
+* **Frontend/UI:** Streamlit
 
-1. PDF dosyasi okunur (`pdf_reader`).
-2. Metin temizlenip chunk'lara ayrilir (`chunker`).
-3. Chunk'lar embedding'e cevrilip FAISS index olusturulur (`retriever`).
-4. Kullanicinin sorusuna en alakali bolumler bulunur.
-5. Icerikten otomatik quiz sorulari uretilir (`quiz_generator`).
-
-## Durum
-
-Proje su anda temel MVP asamasindadir.
-Hedef, bu yapiyi adim adim gelistirerek daha guclu bir "study copilot" deneyimine tasimaktir.
+## 🚧 Project Status
+This project is currently in the Minimum Viable Product (MVP) phase. The core architecture is functional, and it is actively being expanded to build a more robust, feature-rich study copilot experience.
