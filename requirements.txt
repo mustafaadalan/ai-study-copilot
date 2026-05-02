@@ -5,3 +5,4 @@ faiss-cpu
 requests
 mysql-connector-python
 python-dotenv
+pytest

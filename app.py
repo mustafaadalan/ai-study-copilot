@@ -8,6 +8,7 @@ from src.chunker import chunk_pages
 from src.retriever import build_index, search_chunks
 from src.quiz_generator import generate_quiz_from_chunks, generate_quiz_with_ollama
 from src.rag import generate_grounded_answer
+from src.db import init_db, save_quiz_result
 
 st.set_page_config(
     page_title="AI Study Copilot",
@@ -201,6 +202,9 @@ def init_quiz_state():
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
+    if "session_id" not in st.session_state:
+        import uuid
+        st.session_state.session_id = str(uuid.uuid4())[:8]
 
 
 def update_weak_stats(item, is_correct):
@@ -220,6 +224,7 @@ def update_weak_stats(item, is_correct):
 
 model, cross_encoder = load_models()
 init_quiz_state()
+init_db()  # DB yoksa sessizce geçer
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -439,6 +444,17 @@ with tab2:
                         "user_answer": user_answer,
                     }
                     update_weak_stats(item, correct)
+                    save_quiz_result(
+                        session_id=st.session_state.session_id,
+                        pdf_name=uploaded_file.name,
+                        section=item["section"],
+                        page=item["page"],
+                        question=item["question"],
+                        correct_answer=item["answer"],
+                        user_answer=user_answer,
+                        is_correct=correct,
+                        quiz_type=item.get("type", "cloze"),
+                    )
 
             fb = st.session_state.quiz_feedback.get(fb_key)
             if fb:

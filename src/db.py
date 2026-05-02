@@ -74,3 +74,44 @@ def ping():
     with mysql_cursor() as (conn, cur):
         cur.execute("SELECT 1")
         return cur.fetchone() is not None
+
+
+def init_db():
+    """Quiz sonuçları tablosunu oluşturur. DB yoksa sessizce geçer."""
+    try:
+        with mysql_cursor() as (_, cur):
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS quiz_results (
+                    id          INT AUTO_INCREMENT PRIMARY KEY,
+                    session_id  VARCHAR(64)  NOT NULL,
+                    pdf_name    VARCHAR(255),
+                    section     VARCHAR(255),
+                    page        VARCHAR(20),
+                    question    TEXT,
+                    correct_answer TEXT,
+                    user_answer TEXT,
+                    is_correct  BOOLEAN,
+                    quiz_type   VARCHAR(20) DEFAULT 'cloze',
+                    created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
+                ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+            """)
+    except Exception:
+        pass
+
+
+def save_quiz_result(session_id, pdf_name, section, page,
+                     question, correct_answer, user_answer,
+                     is_correct, quiz_type="cloze"):
+    """Tek quiz sonucunu kaydeder. DB yoksa sessizce geçer."""
+    try:
+        with mysql_cursor() as (_, cur):
+            cur.execute("""
+                INSERT INTO quiz_results
+                    (session_id, pdf_name, section, page, question,
+                     correct_answer, user_answer, is_correct, quiz_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (session_id, pdf_name, str(section), str(page),
+                  question, correct_answer, user_answer,
+                  bool(is_correct), quiz_type))
+    except Exception:
+        pass
