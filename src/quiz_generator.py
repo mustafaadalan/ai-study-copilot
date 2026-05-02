@@ -169,13 +169,11 @@ def generate_quiz_from_chunks(chunks, limit=5):
     return items
 
 
-# ── Ollama (kaliteli) ─────────────────────────────────────────────────────────
+# ── Ollama (kaliteli, batch) ──────────────────────────────────────────────────
 
-def generate_quiz_with_ollama(chunks, limit=5, model_name="llama3.1:8b", difficulty="orta"):
-    """Ollama ile kavrama soruları üretir. Başarısız olursa boş liste döner."""
+def generate_quiz_with_ollama(chunks, limit=5, model_name="llama3.2:3b", difficulty="orta"):
+    """Tek API çağrısında tüm soruları üretir — çok daha hızlı."""
     import random
-    shuffled = list(chunks)
-    random.shuffle(shuffled)
 
     difficulty_desc = {
         "kolay": "temel kavramları test eden, kısa cevaplı",
@@ -183,44 +181,49 @@ def generate_quiz_with_ollama(chunks, limit=5, model_name="llama3.1:8b", difficu
         "zor": "eleştirel düşünme gerektiren, detaylı cevaplı",
     }.get(difficulty, "anlama gerektiren")
 
+    valid = [c for c in chunks if len(c.get("chunk", "").split()) >= 20]
+    random.shuffle(valid)
+    selected = valid[:min(limit, len(valid))]
+
+    if not selected:
+        return []
+
+    context_parts = []
+    for i, item in enumerate(selected, 1):
+        context_parts.append(f"[Metin {i}]\n{item['chunk'][:350]}")
+    context = "\n\n".join(context_parts)
+
+    raw = _ollama_ask_batch(context, model_name, difficulty_desc, limit)
+
     items = []
     seen = set()
-
-    for item in shuffled:
-        if len(items) >= limit:
-            break
-        text = item.get("chunk", "").strip()
-        if len(text.split()) < 20:
+    for i, q in enumerate(raw[:limit]):
+        question = q.get("question", "").strip()
+        answer = q.get("answer", "").strip()
+        if not question or not answer or question in seen:
             continue
-
-        raw = _ollama_ask(text[:600], model_name, difficulty_desc)
-        for q in raw:
-            question = q.get("question", "").strip()
-            answer = q.get("answer", "").strip()
-            if not question or not answer or question in seen:
-                continue
-            seen.add(question)
-            items.append({
-                "section": item.get("section", "Genel"),
-                "page": item.get("page", "?"),
-                "question": question,
-                "answer": answer,
-                "source_sentence": text[:200],
-                "type": "ollama",
-            })
-            if len(items) >= limit:
-                break
+        seen.add(question)
+        source = selected[min(i, len(selected) - 1)]
+        items.append({
+            "section": source.get("section", "Genel"),
+            "page": source.get("page", "?"),
+            "question": question,
+            "answer": answer,
+            "source_sentence": source.get("chunk", "")[:200],
+            "type": "ollama",
+        })
 
     return items
 
 
-def _ollama_ask(text, model_name, difficulty_desc):
+def _ollama_ask_batch(context, model_name, difficulty_desc, count):
+    """Tüm soruları tek çağrıda üretir."""
     prompt = (
-        f"Aşağıdaki eğitim metninden {difficulty_desc} 2 soru üret.\n"
+        f"Aşağıdaki eğitim metinlerinden {difficulty_desc} tam olarak {count} soru üret.\n"
         "Türkçe yaz. Cevaplar kısa ve net olsun.\n"
-        "SADECE JSON dizisi döndür, başka hiçbir şey yazma:\n"
-        '[{"question": "...", "answer": "..."}]\n\n'
-        f"Metin:\n{text}\n\nJSON:"
+        f"SADECE {count} elemanlı JSON dizisi döndür, başka hiçbir şey yazma:\n"
+        '[{"question": "...", "answer": "..."}, ...]\n\n'
+        f"Metinler:\n{context}\n\nJSON:"
     )
     payload = {
         "model": model_name,
@@ -235,7 +238,7 @@ def _ollama_ask(text, model_name, difficulty_desc):
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=45) as resp:
+        with urllib.request.urlopen(req, timeout=120) as resp:
             body = json.loads(resp.read().decode())
             content = body.get("message", {}).get("content", "").strip()
             start = content.find("[")

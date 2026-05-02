@@ -137,6 +137,14 @@ def load_models():
     return bi_encoder, cross_encoder
 
 
+@st.cache_data(show_spinner="PDF işleniyor...")
+def process_pdf(file_bytes):
+    import io
+    pages = read_pdf(io.BytesIO(file_bytes))
+    chunks = chunk_pages(pages, max_chunk_words=120, overlap_sentences=1)
+    return pages, chunks
+
+
 def normalize(text):
     text = text.lower().strip()
     text = re.sub(r"[^\w\sçğıöşü]", " ", text, flags=re.IGNORECASE)
@@ -173,9 +181,12 @@ def is_answer_correct(user_answer, true_answer):
     u, t = normalize(user_answer), normalize(true_answer)
     if not u:
         return False
-    if u == t or u in t or t in u:
+    if u == t:
         return True
-    return SequenceMatcher(None, u, t).ratio() >= 0.75
+    # Doğru cevap kullanıcının uzun cevabı içindeyse kabul et (ör. tam cümle yazdı)
+    if t in u and len(u) <= len(t) * 2.5:
+        return True
+    return SequenceMatcher(None, u, t).ratio() >= 0.85
 
 
 def init_quiz_state():
@@ -226,8 +237,8 @@ with st.sidebar:
     use_ollama_rag = st.toggle("RAG ile cevap üret", value=True)
     use_ollama_quiz = st.toggle("Ollama ile quiz üret", value=True)
     ollama_model_name = st.text_input(
-        "Ollama model", value="llama3.1:8b",
-        label_visibility="collapsed", placeholder="llama3.1:8b"
+        "Ollama model", value="llama3.2:3b",
+        label_visibility="collapsed", placeholder="llama3.2:3b"
     )
     difficulty = st.select_slider(
         "Quiz zorluğu",
@@ -263,9 +274,8 @@ if uploaded_file is None:
     """, unsafe_allow_html=True)
     st.stop()
 
-# ── PDF işleme ────────────────────────────────────────────────────────────────
-pages = read_pdf(uploaded_file)
-chunks = chunk_pages(pages, max_chunk_words=120, overlap_sentences=1)
+# ── PDF işleme (cache'li — her butona basışta yeniden çalışmaz) ───────────────
+pages, chunks = process_pdf(uploaded_file.getvalue())
 available_sections = sorted(set(c["section"] for c in chunks if c["section"] != "Genel"))
 
 with st.sidebar:
@@ -280,7 +290,17 @@ active_chunks = (
     chunks if selected_section == "Tüm PDF"
     else [c for c in chunks if c["section"] == selected_section]
 )
-index = build_index(active_chunks, model) if active_chunks else None
+
+# Index'i session_state'te cache'le — section değişmediği sürece yeniden hesaplanmaz
+if "index_cache" not in st.session_state:
+    st.session_state.index_cache = {}
+
+_index_key = f"{uploaded_file.name}_{selected_section}"
+if _index_key not in st.session_state.index_cache:
+    st.session_state.index_cache[_index_key] = (
+        build_index(active_chunks, model) if active_chunks else None
+    )
+index = st.session_state.index_cache[_index_key]
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab1, tab2 = st.tabs(["🔍 Kaynak Arama", "🧠 Quiz"])
